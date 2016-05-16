@@ -31,20 +31,18 @@
  */
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 
-using Android.Hardware.Usb;
-using Android.OS;
 using Android.Util;
-
-using Java.Nio;
+using Android.Hardware.Usb;
 
 namespace Aid.UsbSerial
 {
 	public class ProlificSerialPort : UsbSerialPort
     {
+        // ReSharper disable UnusedMember.Local
+        // ReSharper disable InconsistentNaming
 
         private const string TAG = "ProlificSerialPort";
 
@@ -87,58 +85,59 @@ namespace Aid.UsbSerial
         private const int DEVICE_TYPE_0 = 1;
         private const int DEVICE_TYPE_1 = 2;
 
-        private int mDeviceType = DEVICE_TYPE_HX;
+        // ReSharper restore InconsistentNaming
+        // ReSharper restore UnusedMember.Local
 
-        private UsbEndpoint mReadEndpoint;
-        private UsbEndpoint mWriteEndpoint;
-        private UsbEndpoint mInterruptEndpoint;
+        private int _deviceType = DEVICE_TYPE_HX;
 
-        private int mControlLinesValue = 0;
+        private UsbEndpoint _readEndpoint;
+        private UsbEndpoint _writeEndpoint;
+        private UsbEndpoint _interruptEndpoint;
 
-        private int? mBaudRate, mDataBits;
-        StopBits? mStopBits;
-        Parity? mParity;
+        private int _controlLinesValue;
 
-        private int mStatus = 0;
-        private Thread mReadStatusThread = null;
-        private Object mReadStatusThreadLock = new Object();
-        bool mStopReadStatusThread = false;
-        private IOException mReadStatusException = null;
+        private int? _baudRate, _dataBits;
+        private StopBits? _stopBits;
+        private Parity? _parity;
+
+        private int _status;
+        private Thread _readStatusThread;
+        private readonly object _readStatusThreadLock = new object();
+        private bool _stopReadStatusThread;
+        private IOException _readStatusException;
 
         public ProlificSerialPort(UsbManager manager, UsbDevice device, int portNumber)
             : base(manager, device, portNumber)
         {
         }
 
-        private byte[] InControlTransfer(int requestType, int request,
-                int value, int index, int length)
+        private void InControlTransfer(int requestType, int request, int value, int index, int length)
         {
-            byte[] buffer = new byte[length];
-            int result = Connection.ControlTransfer((UsbAddressing)requestType, request, value, index, buffer, length, USB_READ_TIMEOUT_MILLIS);
+            var buffer = new byte[length];
+            var result = Connection.ControlTransfer((UsbAddressing)requestType, request, value, index, buffer, length, USB_READ_TIMEOUT_MILLIS);
             if (result != length)
             {
-                throw new IOException(string.Format("ControlTransfer with value 0x{0:x} failed: {1}", value, result));
+                throw new IOException($"ControlTransfer with value 0x{value:x} failed: {result}");
             }
-            return buffer;
         }
 
         private void OutControlTransfer(int requestType, int request,
                 int value, int index, byte[] data)
         {
-            int length = (data == null) ? 0 : data.Length;
-            int result = Connection.ControlTransfer((UsbAddressing)requestType, request, value, index, data, length, USB_WRITE_TIMEOUT_MILLIS);
+            var length = data?.Length ?? 0;
+            var result = Connection.ControlTransfer((UsbAddressing)requestType, request, value, index, data, length, USB_WRITE_TIMEOUT_MILLIS);
             if (result != length)
             {
-				throw new IOException(string.Format("ControlTransfer with value 0x{0:x} failed: {1}", value, result));
+				throw new IOException($"ControlTransfer with value 0x{value:x} failed: {result}");
             }
         }
 
-        private byte[] VendorIn(int value, int index, int length)
+        private void VendorIn(int value, int index, int length)
         {
-            return InControlTransfer(ProlificVendorIN_REQTYPE, ProlificVendorREAD_REQUEST, value, index, length);
+            InControlTransfer(ProlificVendorIN_REQTYPE, ProlificVendorREAD_REQUEST, value, index, length);
         }
 
-        private void VendorOut(int value, int index, byte[] data)
+	    private void VendorOut(int value, int index, byte[] data)
         {
             OutControlTransfer(ProlificVendorOUT_REQTYPE, ProlificVendorWRITE_REQUEST, value, index, data);
         }
@@ -165,23 +164,23 @@ namespace Aid.UsbSerial
             VendorIn(0x8383, 0, 1);
             VendorOut(0, 1, null);
             VendorOut(1, 0, null);
-            VendorOut(2, (mDeviceType == DEVICE_TYPE_HX) ? 0x44 : 0x24, null);
+            VendorOut(2, (_deviceType == DEVICE_TYPE_HX) ? 0x44 : 0x24, null);
         }
 
         private void SetControlLines(int newControlLinesValue)
         {
 			CtrlOut(SET_CONTROL_REQUEST, newControlLinesValue, 0, null);
-            mControlLinesValue = newControlLinesValue;
+            _controlLinesValue = newControlLinesValue;
         }
 
         private void ReadStatusThreadFunction()
         {
             try
             {
-                while (!mStopReadStatusThread)
+                while (!_stopReadStatusThread)
                 {
-                    byte[] buffer = new byte[STATUS_BUFFER_SIZE];
-                    int readBytesCount = Connection.BulkTransfer(mInterruptEndpoint,
+                    var buffer = new byte[STATUS_BUFFER_SIZE];
+                    var readBytesCount = Connection.BulkTransfer(_interruptEndpoint,
                             buffer,
                             STATUS_BUFFER_SIZE,
                             500);
@@ -189,18 +188,19 @@ namespace Aid.UsbSerial
                     {
                         if (readBytesCount == STATUS_BUFFER_SIZE)
                         {
-                            mStatus = buffer[STATUS_BYTE_IDX] & 0xff;
+                            _status = buffer[STATUS_BYTE_IDX] & 0xff;
                         }
                         else
                         {
-                            throw new IOException(string.Format("Invalid CTS / DSR / CD / RI status buffer received, expected {0} bytes, but received {1} bytes.", STATUS_BUFFER_SIZE, readBytesCount));
+                            throw new IOException(
+                                $"Invalid CTS / DSR / CD / RI status buffer received, expected {STATUS_BUFFER_SIZE} bytes, but received {readBytesCount} bytes.");
                         }
                     }
                 }
             }
             catch (IOException e)
             {
-                mReadStatusException = e;
+                _readStatusException = e;
             }
         }
 
@@ -208,81 +208,81 @@ namespace Aid.UsbSerial
         {
             get
             {
-                if ((mReadStatusThread == null) && (mReadStatusException == null))
+                if ((_readStatusThread == null) && (_readStatusException == null))
                 {
-                    lock (mReadStatusThreadLock)
+                    lock (_readStatusThreadLock)
                     {
-                        if (mReadStatusThread == null)
+                        if (_readStatusThread == null)
                         {
-                            byte[] buffer = new byte[STATUS_BUFFER_SIZE];
-                            int readBytes = Connection.BulkTransfer(mInterruptEndpoint, buffer, STATUS_BUFFER_SIZE, 100);
+                            var buffer = new byte[STATUS_BUFFER_SIZE];
+                            var readBytes = Connection.BulkTransfer(_interruptEndpoint, buffer, STATUS_BUFFER_SIZE, 100);
                             if (readBytes != STATUS_BUFFER_SIZE)
                             {
                                 Log.Warn(TAG, "Could not read initial CTS / DSR / CD / RI status");
                             }
                             else
                             {
-                                mStatus = buffer[STATUS_BYTE_IDX] & 0xff;
+                                _status = buffer[STATUS_BYTE_IDX] & 0xff;
                             }
-                            mReadStatusThread = new Thread(ReadStatusThreadFunction);
-                            mReadStatusThread.Start();
+                            _readStatusThread = new Thread(ReadStatusThreadFunction);
+                            _readStatusThread.Start();
                         }
                     }
                 }
 
                 /* throw and clear an exception which occured in the status read thread */
-                IOException readStatusException = mReadStatusException;
-                if (mReadStatusException != null)
+                var readStatusException = _readStatusException;
+                if (readStatusException != null)
                 {
-                    mReadStatusException = null;
+                    _readStatusException = null;
                     throw readStatusException;
                 }
 
-                return mStatus;
+                return _status;
             }
         }
 
         private bool TestStatusFlag(int flag)
         {
-            return ((Status & flag) == flag);
+            return (Status & flag) == flag;
         }
 
 		public override void Open()
         {
-            bool openedSuccessfully = false;
+            var openedSuccessfully = false;
             try
             {
 				CreateConnection();
 
-				UsbInterface usbInterface = UsbDevice.GetInterface(0);
+				var usbInterface = UsbDevice.GetInterface(0);
 				if (!Connection.ClaimInterface(usbInterface, true))
 				{
 					throw new IOException("Error claiming Prolific interface 0");
 				}
 
-                for (int i = 0; i < usbInterface.EndpointCount; ++i)
+                for (var i = 0; i < usbInterface.EndpointCount; ++i)
                 {
-                    UsbEndpoint currentEndpoint = usbInterface.GetEndpoint(i);
+                    var currentEndpoint = usbInterface.GetEndpoint(i);
 
                     switch ((int)currentEndpoint.Address)
                     {
                         case READ_ENDPOINT:
-                            mReadEndpoint = currentEndpoint;
+                            _readEndpoint = currentEndpoint;
                             break;
 
                         case WRITE_ENDPOINT:
-                            mWriteEndpoint = currentEndpoint;
+                            _writeEndpoint = currentEndpoint;
                             break;
 
                         case INTERRUPT_ENDPOINT:
-                            mInterruptEndpoint = currentEndpoint;
+                            _interruptEndpoint = currentEndpoint;
                             break;
                     }
                 }
 
                 if (UsbDevice.DeviceClass == UsbClass.Comm)
                 {
-                    mDeviceType = DEVICE_TYPE_0;
+                    _deviceType = DEVICE_TYPE_0;
                 }
                 else
                 {
@@ -292,17 +292,17 @@ namespace Aid.UsbSerial
                         byte maxPacketSize0 = rawDescriptors[7];
                         if (maxPacketSize0 == 64)
                         {
-                            mDeviceType = DEVICE_TYPE_HX;
+                            _deviceType = DEVICE_TYPE_HX;
                         }
                         else if ((UsbDevice.DeviceClass == UsbClass.PerInterface) || (UsbDevice.DeviceClass == UsbClass.VendorSpec))
                         {
-                            mDeviceType = DEVICE_TYPE_1;
+                            _deviceType = DEVICE_TYPE_1;
                         }
                         else
                         {
                             Log.Warn(TAG, "Could not detect PL2303 subtype, "
                                 + "Assuming that it is a HX device");
-                            mDeviceType = DEVICE_TYPE_HX;
+                            _deviceType = DEVICE_TYPE_HX;
                         }
                     }
                     catch (Exception e)
@@ -312,7 +312,7 @@ namespace Aid.UsbSerial
                     }
                 }
 
-                SetControlLines(mControlLinesValue);
+                SetControlLines(_controlLinesValue);
                 ResetDevice();
                 DoBlackMagic();
 				ResetParameters();
@@ -334,11 +334,11 @@ namespace Aid.UsbSerial
 			StopUpdating ();
 
 			try {
-				mStopReadStatusThread = true;
-				lock (mReadStatusThreadLock) {
-					if (mReadStatusThread != null) {
+				_stopReadStatusThread = true;
+				lock (_readStatusThreadLock) {
+					if (_readStatusThread != null) {
 						try {
-							mReadStatusThread.Join ();
+							_readStatusThread.Join ();
 						} catch (Exception e) {
 							Log.Warn (TAG, "An error occured while waiting for status read thread", e);
 						}
@@ -348,14 +348,16 @@ namespace Aid.UsbSerial
 					ResetDevice ();
 				}
 			}
-			catch (Exception) {
+			catch (Exception)
+			{
+			    // ignored
 			}
 			finally {
-				try {
-					if (Connection != null) {
-						Connection.ReleaseInterface (UsbDevice.GetInterface (0));
-					}
-				} finally {
+				try
+				{
+				    Connection?.ReleaseInterface (UsbDevice.GetInterface (0));
+				}
+				finally {
 					CloseConnection ();
 					IsOpened = false;
 				}
@@ -367,33 +369,33 @@ namespace Aid.UsbSerial
 		if (Connection == null)
 			return 0;
 		
-            lock (mInternalReadBufferLock)
+            lock (InternalReadBufferLock)
             {
-                int readAmt = Math.Min(dest.Length, mInternalReadBuffer.Length);
-                int numBytesRead = Connection.BulkTransfer(mReadEndpoint, mInternalReadBuffer, readAmt, timeoutMillis);
+                var readAmt = Math.Min(dest.Length, InternalReadBuffer.Length);
+                var numBytesRead = Connection.BulkTransfer(_readEndpoint, InternalReadBuffer, readAmt, timeoutMillis);
                 if (numBytesRead < 0)
                 {
                     return 0;
                 }
-                Array.Copy(mInternalReadBuffer, 0, dest, 0, numBytesRead);
+                Array.Copy(InternalReadBuffer, 0, dest, 0, numBytesRead);
                 return numBytesRead;
             }
         }
 
         public override int Write(byte[] src, int timeoutMillis)
         {
-            int offset = 0;
+            var offset = 0;
 
             while (offset < src.Length)
             {
                 int writeLength;
                 int amtWritten;
 
-                lock (mWriteBufferLock)
+                lock (WriteBufferLock)
                 {
                     byte[] writeBuffer;
 
-                    writeLength = Math.Min(src.Length - offset, mWriteBuffer.Length);
+                    writeLength = Math.Min(src.Length - offset, WriteBuffer.Length);
                     if (offset == 0)
                     {
                         writeBuffer = src;
@@ -401,11 +403,11 @@ namespace Aid.UsbSerial
                     else
                     {
                         // bulkTransfer does not support offsets, make a copy.
-                        Array.Copy(src, offset, mWriteBuffer, 0, writeLength);
-                        writeBuffer = mWriteBuffer;
+                        Array.Copy(src, offset, WriteBuffer, 0, writeLength);
+                        writeBuffer = WriteBuffer;
                     }
 
-                    amtWritten = Connection.BulkTransfer(mWriteEndpoint,
+                    amtWritten = Connection.BulkTransfer(_writeEndpoint,
                             writeBuffer, writeLength, timeoutMillis);
                 }
 
@@ -423,14 +425,14 @@ namespace Aid.UsbSerial
 
         protected override void SetParameters(int baudRate, int dataBits, StopBits stopBits, Parity parity)
         {
-            if ((mBaudRate == baudRate) && (mDataBits == dataBits)
-                    && (mStopBits == stopBits) && (mParity == parity))
+            if ((_baudRate == baudRate) && (_dataBits == dataBits)
+                    && (_stopBits == stopBits) && (_parity == parity))
             {
                 // Make sure no action is performed if there is nothing to change
                 return;
             }
 
-            byte[] lineRequestData = new byte[7];
+            var lineRequestData = new byte[7];
 
             lineRequestData[0] = (byte)(baudRate & 0xff);
             lineRequestData[1] = (byte)((baudRate >> 8) & 0xff);
@@ -483,81 +485,57 @@ namespace Aid.UsbSerial
 
             ResetDevice();
 
-            mBaudRate = baudRate;
-            mDataBits = dataBits;
-            mStopBits = stopBits;
-            mParity = parity;
+            _baudRate = baudRate;
+            _dataBits = dataBits;
+            _stopBits = stopBits;
+            _parity = parity;
         }
 
-        public override bool CD
+        public override bool CD => TestStatusFlag(STATUS_FLAG_CD);
+
+	    public override bool Cts => TestStatusFlag(STATUS_FLAG_CTS);
+
+	    public override bool Dsr => TestStatusFlag(STATUS_FLAG_DSR);
+
+	    public override bool Dtr
         {
             get
             {
-                return TestStatusFlag(STATUS_FLAG_CD);
-            }
-        }
-
-        public override bool Cts
-        {
-            get
-            {
-                return TestStatusFlag(STATUS_FLAG_CTS);
-            }
-        }
-
-        public override bool Dsr
-        {
-            get
-            {
-                return TestStatusFlag(STATUS_FLAG_DSR);
-            }
-        }
-
-        public override bool Dtr
-        {
-            get
-            {
-                return ((mControlLinesValue & CONTROL_DTR) == CONTROL_DTR);
+                return (_controlLinesValue & CONTROL_DTR) == CONTROL_DTR;
             }
             set
             {
                 int newControlLinesValue;
                 if (value)
                 {
-                    newControlLinesValue = mControlLinesValue | CONTROL_DTR;
+                    newControlLinesValue = _controlLinesValue | CONTROL_DTR;
                 }
                 else
                 {
-                    newControlLinesValue = mControlLinesValue & ~CONTROL_DTR;
+                    newControlLinesValue = _controlLinesValue & ~CONTROL_DTR;
                 }
                 SetControlLines(newControlLinesValue);
             }
         }
 
-        public override bool RI
-        {
-            get
-            {
-                return TestStatusFlag(STATUS_FLAG_RI);
-            }
-        }
+        public override bool RI => TestStatusFlag(STATUS_FLAG_RI);
 
-        public override bool Rts
+	    public override bool Rts
         {
             get
             {
-                return ((mControlLinesValue & CONTROL_RTS) == CONTROL_RTS);
+                return (_controlLinesValue & CONTROL_RTS) == CONTROL_RTS;
             }
             set
             {
                 int newControlLinesValue;
                 if (value)
                 {
-                    newControlLinesValue = mControlLinesValue | CONTROL_RTS;
+                    newControlLinesValue = _controlLinesValue | CONTROL_RTS;
                 }
                 else
                 {
-                    newControlLinesValue = mControlLinesValue & ~CONTROL_RTS;
+                    newControlLinesValue = _controlLinesValue & ~CONTROL_RTS;
                 }
                 SetControlLines(newControlLinesValue);
             }

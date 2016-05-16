@@ -24,14 +24,12 @@
  */
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 
-using Android.Hardware.Usb;
-using Android.OS;
-using Android.Util;
-
 using Java.Nio;
+
+using Android.Util;
+using Android.Hardware.Usb;
 
 namespace Aid.UsbSerial
 {
@@ -92,10 +90,12 @@ namespace Aid.UsbSerial
      */
 	public class FtdiSerialPort : UsbSerialPort
     {
-		/**
+        // ReSharper disable UnusedMember.Local
+        // ReSharper disable InconsistentNaming
+        /**
          * FTDI chip types.
          */
-		private enum DeviceType
+        private enum DeviceType
 		{
 			TYPE_BM,
 			TYPE_AM,
@@ -105,51 +105,51 @@ namespace Aid.UsbSerial
 			TYPE_4232H
 		}
 
-        public static int USB_TYPE_STANDARD = 0x00 << 5;
-        public static int USB_TYPE_CLASS = 0x00 << 5;
-        public static int USB_TYPE_VENDOR = 0x00 << 5;
-        public static int USB_TYPE_RESERVED = 0x00 << 5;
+        public const int USB_TYPE_STANDARD = 0x00 << 5;
+        public const int USB_TYPE_CLASS = 0x00 << 5;
+        public const int USB_TYPE_VENDOR = 0x00 << 5;
+        public const int USB_TYPE_RESERVED = 0x00 << 5;
 
-        public static int USB_RECIP_DEVICE = 0x00;
-        public static int USB_RECIP_INTERFACE = 0x01;
-        public static int USB_RECIP_ENDPOINT = 0x02;
-        public static int USB_RECIP_OTHER = 0x03;
+        public const int USB_RECIP_DEVICE = 0x00;
+        public const int USB_RECIP_INTERFACE = 0x01;
+        public const int USB_RECIP_ENDPOINT = 0x02;
+        public const int USB_RECIP_OTHER = 0x03;
 
-        public static int USB_ENDPOINT_IN = 0x80;
-        public static int USB_ENDPOINT_OUT = 0x00;
+        public const int USB_ENDPOINT_IN = 0x80;
+        public const int USB_ENDPOINT_OUT = 0x00;
 
-        public static int USB_WRITE_TIMEOUT_MILLIS = 5000;
-        public static int USB_READ_TIMEOUT_MILLIS = 5000;
+        public const int USB_WRITE_TIMEOUT_MILLIS = 5000;
+        public const int USB_READ_TIMEOUT_MILLIS = 5000;
 
         // From ftdi.h
         /**
          * Reset the port.
          */
-        private static int SIO_RESET_REQUEST = 0;
+        private const int SIO_RESET_REQUEST = 0;
 
         /**
          * Set the modem control register.
          */
-        private static int SIO_MODEM_CTRL_REQUEST = 1;
+        private const int SIO_MODEM_CTRL_REQUEST = 1;
 
         /**
          * Set flow control register.
          */
-        private static int SIO_SET_FLOW_CTRL_REQUEST = 2;
+        private const int SIO_SET_FLOW_CTRL_REQUEST = 2;
 
         /**
          * Set baud rate.
          */
-        private static int SIO_SET_BAUD_RATE_REQUEST = 3;
+        private const int SIO_SET_BAUD_RATE_REQUEST = 3;
 
         /**
          * Set the data characteristics of the port.
          */
-        private static int SIO_SET_DATA_REQUEST = 4;
+        private const int SIO_SET_DATA_REQUEST = 4;
 
-        private static int SIO_RESET_SIO = 0;
-        private static int SIO_RESET_PURGE_RX = 1;
-        private static int SIO_RESET_PURGE_TX = 2;
+        private const int SIO_RESET_SIO = 0;
+        private const int SIO_RESET_PURGE_RX = 1;
+        private const int SIO_RESET_PURGE_TX = 2;
 
         public static int FtdiDEVICE_OUT_REQTYPE =
                 UsbConstants.UsbTypeVendor | USB_RECIP_DEVICE | USB_ENDPOINT_OUT;
@@ -160,15 +160,18 @@ namespace Aid.UsbSerial
         /**
          * Length of the modem status header, transmitted with every read.
          */
-        private static int MODEM_STATUS_HEADER_LENGTH = 2;
+        private const int MODEM_STATUS_HEADER_LENGTH = 2;
 
-        private string TAG = "FtdiSerialPort";
+        private const string TAG = "FtdiSerialPort";
 
-        private DeviceType mType;
+        private DeviceType _type;
 
-        private int mInterface = 0; /* INTERFACE_ANY */
+        private const int Interface = 0; /* INTERFACE_ANY */
 
-        private int mMaxPacketSize = 64; // TODO(mikey): detect
+        private const int MMaxPacketSize = 64; // TODO(mikey): detect
+
+        // ReSharper restore InconsistentNaming
+        // ReSharper restore UnusedMember.Local
 
         /**
          * Due to http://b.android.com/28023 , we cannot use UsbRequest async reads
@@ -192,10 +195,10 @@ namespace Aid.UsbSerial
          */
         private int FilterStatusBytes(byte[] src, byte[] dest, int totalBytesRead, int maxPacketSize)
         {
-            int packetsCount = totalBytesRead / maxPacketSize + (totalBytesRead % maxPacketSize == 0 ? 0 : 1);
-            for (int packetIdx = 0; packetIdx < packetsCount; ++packetIdx)
+            var packetsCount = totalBytesRead / maxPacketSize + (totalBytesRead % maxPacketSize == 0 ? 0 : 1);
+            for (var packetIdx = 0; packetIdx < packetsCount; ++packetIdx)
             {
-                int count = (packetIdx == (packetsCount - 1))
+                var count = (packetIdx == (packetsCount - 1))
                         ? (totalBytesRead % maxPacketSize) - MODEM_STATUS_HEADER_LENGTH
                         : maxPacketSize - MODEM_STATUS_HEADER_LENGTH;
                 if (count > 0)
@@ -220,7 +223,7 @@ namespace Aid.UsbSerial
             }
 
             // TODO(mikey): autodetect.
-            mType = DeviceType.TYPE_R;
+            _type = DeviceType.TYPE_R;
         }
 
         public override void Open()
@@ -230,7 +233,7 @@ namespace Aid.UsbSerial
             {
 				CreateConnection();
 
-                for (int i = 0; i < UsbDevice.InterfaceCount; i++)
+                for (var i = 0; i < UsbDevice.InterfaceCount; i++)
                 {
                     if (Connection.ClaimInterface(UsbDevice.GetInterface(i), true))
                     {
@@ -264,27 +267,27 @@ namespace Aid.UsbSerial
 
         protected override int ReadInternal(byte[] dest, int timeoutMillis)
         {
-            UsbEndpoint endpoint = UsbDevice.GetInterface(0).GetEndpoint(0);
+            var endpoint = UsbDevice.GetInterface(0).GetEndpoint(0);
 
             if (ENABLE_ASYNC_READS)
             {
                 int readAmt;
-                lock (mInternalReadBufferLock)
+                lock (InternalReadBufferLock)
                 {
-                    // mReadBuffer is only used for maximum read size.
-                    readAmt = Math.Min(dest.Length, mInternalReadBuffer.Length);
+                    // ReadBuffer is only used for maximum read size.
+                    readAmt = Math.Min(dest.Length, InternalReadBuffer.Length);
                 }
 
-                UsbRequest request = new UsbRequest();
+                var request = new UsbRequest();
                 request.Initialize(Connection, endpoint);
 
-                ByteBuffer buf = ByteBuffer.Wrap(dest);
+                var buf = ByteBuffer.Wrap(dest);
                 if (!request.Queue(buf, readAmt))
                 {
                     throw new IOException("Error queueing request.");
                 }
 
-                UsbRequest response = Connection.RequestWait();
+                var response = Connection.RequestWait();
                 if (response == null)
                 {
                     throw new IOException("Null response");
@@ -296,46 +299,40 @@ namespace Aid.UsbSerial
                     //Log.Debug(TAG, HexDump.DumpHexString(dest, 0, Math.Min(32, dest.Length)));
                     return payloadBytesRead;
                 }
-                else
-                {
-                    return 0;
-                }
+
+                return 0;
             }
-            else
+
+            lock (InternalReadBufferLock)
             {
-                int totalBytesRead;
+                var readAmt = Math.Min(dest.Length, InternalReadBuffer.Length);
+                var totalBytesRead = Connection.BulkTransfer(endpoint, InternalReadBuffer,
+                    readAmt, timeoutMillis);
 
-                lock (mInternalReadBufferLock)
+                if (totalBytesRead < MODEM_STATUS_HEADER_LENGTH)
                 {
-                    int readAmt = Math.Min(dest.Length, mInternalReadBuffer.Length);
-                    totalBytesRead = Connection.BulkTransfer(endpoint, mInternalReadBuffer,
-                            readAmt, timeoutMillis);
-
-                    if (totalBytesRead < MODEM_STATUS_HEADER_LENGTH)
-                    {
-                        throw new IOException("Expected at least " + MODEM_STATUS_HEADER_LENGTH + " bytes");
-                    }
-
-                    return FilterStatusBytes(mInternalReadBuffer, dest, totalBytesRead, endpoint.MaxPacketSize);
+                    throw new IOException("Expected at least " + MODEM_STATUS_HEADER_LENGTH + " bytes");
                 }
+
+                return FilterStatusBytes(InternalReadBuffer, dest, totalBytesRead, endpoint.MaxPacketSize);
             }
         }
 
         public override int Write(byte[] src, int timeoutMillis)
         {
-            UsbEndpoint endpoint = UsbDevice.GetInterface(0).GetEndpoint(1);
-            int offset = 0;
+            var endpoint = UsbDevice.GetInterface(0).GetEndpoint(1);
+            var offset = 0;
 
             while (offset < src.Length)
             {
                 int writeLength;
                 int amtWritten;
 
-                lock (mWriteBufferLock)
+                lock (WriteBufferLock)
                 {
                     byte[] writeBuffer;
 
-                    writeLength = Math.Min(src.Length - offset, mWriteBuffer.Length);
+                    writeLength = Math.Min(src.Length - offset, WriteBuffer.Length);
                     if (offset == 0)
                     {
                         writeBuffer = src;
@@ -343,8 +340,8 @@ namespace Aid.UsbSerial
                     else
                     {
                         // bulkTransfer does not support offsets, make a copy.
-                        Array.Copy(src, offset, mWriteBuffer, 0, writeLength);
-                        writeBuffer = mWriteBuffer;
+                        Array.Copy(src, offset, WriteBuffer, 0, writeLength);
+                        writeBuffer = WriteBuffer;
                     }
 
                     amtWritten = Connection.BulkTransfer(endpoint, writeBuffer, writeLength,
@@ -363,25 +360,23 @@ namespace Aid.UsbSerial
             return offset;
         }
 
-        private int SetBaudRate(int baudRate)
+        private void SetBaudRate(int baudRate)
         {
-            long[] vals = ConvertBaudrate(baudRate);
-            long actualBaudrate = vals[0];
-            long index = vals[1];
-            long value = vals[2];
-            int result = Connection.ControlTransfer((UsbAddressing)FtdiDEVICE_OUT_REQTYPE, SIO_SET_BAUD_RATE_REQUEST, (int)value, (int)index, null, 0, USB_WRITE_TIMEOUT_MILLIS);
+            var vals = ConvertBaudrate(baudRate);
+            var index = vals[1];
+            var value = vals[2];
+            var result = Connection.ControlTransfer((UsbAddressing)FtdiDEVICE_OUT_REQTYPE, SIO_SET_BAUD_RATE_REQUEST, (int)value, (int)index, null, 0, USB_WRITE_TIMEOUT_MILLIS);
             if (result != 0)
             {
                 throw new IOException("Setting baudrate failed: result=" + result);
             }
-            return (int)actualBaudrate;
         }
 
         protected override void SetParameters(int baudRate, int dataBits, StopBits stopBits, Parity parity)
         {
             SetBaudRate(baudRate);
 
-            int config = dataBits;
+            var config = dataBits;
 
             switch (parity)
             {
@@ -419,7 +414,7 @@ namespace Aid.UsbSerial
                     throw new ArgumentException("Unknown stopBits value: " + stopBits);
             }
 
-            int result = Connection.ControlTransfer((UsbAddressing)FtdiDEVICE_OUT_REQTYPE, SIO_SET_DATA_REQUEST, config, 0 /* index */, null, 0, USB_WRITE_TIMEOUT_MILLIS);
+            var result = Connection.ControlTransfer((UsbAddressing)FtdiDEVICE_OUT_REQTYPE, SIO_SET_DATA_REQUEST, config, 0 /* index */, null, 0, USB_WRITE_TIMEOUT_MILLIS);
             if (result != 0)
             {
                 throw new IOException("Setting parameters failed: result=" + result);
@@ -430,16 +425,15 @@ namespace Aid.UsbSerial
         {
             // TODO(mikey): Braindead transcription of libfti method.  Clean up,
             // using more idiomatic Java where possible.
-            int divisor = 24000000 / baudrate;
-            int bestDivisor = 0;
-            int bestBaud = 0;
-            int bestBaudDiff = 0;
-            int[] fracCode = new int[] { 0, 3, 2, 4, 1, 5, 6, 7 };
+            var divisor = 24000000 / baudrate;
+            var bestDivisor = 0;
+            var bestBaud = 0;
+            var bestBaudDiff = 0;
+            var fracCode = new[] { 0, 3, 2, 4, 1, 5, 6, 7 };
 
-            for (int i = 0; i < 2; i++)
+            for (var i = 0; i < 2; i++)
             {
-                int tryDivisor = divisor + i;
-                int baudEstimate;
+                var tryDivisor = divisor + i;
                 int baudDiff;
 
                 if (tryDivisor <= 8)
@@ -447,7 +441,7 @@ namespace Aid.UsbSerial
                     // Round up to minimum supported divisor
                     tryDivisor = 8;
                 }
-                else if (mType != DeviceType.TYPE_AM && tryDivisor < 12)
+                else if (_type != DeviceType.TYPE_AM && tryDivisor < 12)
                 {
                     // BM doesn't support divisors 9 through 11 inclusive
                     tryDivisor = 12;
@@ -459,7 +453,7 @@ namespace Aid.UsbSerial
                 }
                 else
                 {
-                    if (mType == DeviceType.TYPE_AM)
+                    if (_type == DeviceType.TYPE_AM)
                     {
                         // TODO
                     }
@@ -475,7 +469,7 @@ namespace Aid.UsbSerial
                 }
 
                 // Get estimated baud rate (to nearest integer)
-                baudEstimate = (24000000 + (tryDivisor / 2)) / tryDivisor;
+                var baudEstimate = (24000000 + (tryDivisor / 2)) / tryDivisor;
 
                 // Get absolute difference from requested baud rate
                 if (baudEstimate < baudrate)
@@ -514,10 +508,10 @@ namespace Aid.UsbSerial
             }
 
             // Split into "value" and "index" values
-            long value = encodedDivisor & 0xFFFF;
+            var value = encodedDivisor & 0xFFFF;
             long index;
-            if (mType == DeviceType.TYPE_2232C || mType == DeviceType.TYPE_2232H
-                    || mType == DeviceType.TYPE_4232H)
+            if (_type == DeviceType.TYPE_2232C || _type == DeviceType.TYPE_2232H
+                    || _type == DeviceType.TYPE_4232H)
             {
                 index = (encodedDivisor >> 8) & 0xffff;
                 index &= 0xFF00;
@@ -529,34 +523,16 @@ namespace Aid.UsbSerial
             }
 
             // Return the nearest baud rate
-            return new long[] {
+            return new[] {
                 bestBaud, index, value
         };
         }
 
-        public override bool CD
-        {
-            get
-            {
-                return false;  // TODO
-            }
-        }
+        public override bool CD => false; // TODO
 
-        public override bool Cts
-        {
-            get
-            {
-                return false;  // TODO
-            }
-        }
+        public override bool Cts => false;
 
-        public override bool Dsr
-        {
-            get
-            {
-                return false;  // TODO
-            }
-        }
+	    public override bool Dsr => false; // TODO
 
         public override bool Dtr
         {
@@ -569,13 +545,7 @@ namespace Aid.UsbSerial
             }
         }
 
-        public override bool RI
-        {
-            get
-            {
-                return false;  // TODO
-            }
-        }
+        public override bool RI => false; // TODO
 
         public override bool Rts
         {
@@ -592,7 +562,7 @@ namespace Aid.UsbSerial
         {
             if (purgeReadBuffers)
             {
-                int result = Connection.ControlTransfer((UsbAddressing)FtdiDEVICE_OUT_REQTYPE, SIO_RESET_REQUEST, SIO_RESET_PURGE_RX, 0 /* index */, null, 0, USB_WRITE_TIMEOUT_MILLIS);
+                var result = Connection.ControlTransfer((UsbAddressing)FtdiDEVICE_OUT_REQTYPE, SIO_RESET_REQUEST, SIO_RESET_PURGE_RX, 0 /* index */, null, 0, USB_WRITE_TIMEOUT_MILLIS);
                 if (result != 0)
                 {
                     throw new IOException("Flushing RX failed: result=" + result);
@@ -601,7 +571,7 @@ namespace Aid.UsbSerial
 
             if (purgeWriteBuffers)
             {
-                int result = Connection.ControlTransfer((UsbAddressing)FtdiDEVICE_OUT_REQTYPE, SIO_RESET_REQUEST, SIO_RESET_PURGE_TX, 0 /* index */, null, 0, USB_WRITE_TIMEOUT_MILLIS);
+                var result = Connection.ControlTransfer((UsbAddressing)FtdiDEVICE_OUT_REQTYPE, SIO_RESET_REQUEST, SIO_RESET_PURGE_TX, 0 /* index */, null, 0, USB_WRITE_TIMEOUT_MILLIS);
                 if (result != 0)
                 {
                     throw new IOException("Flushing RX failed: result=" + result);

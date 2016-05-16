@@ -25,43 +25,49 @@
 
 using System;
 using System.Threading;
+
 using Android.Hardware.Usb;
 
 namespace Aid.UsbSerial
 {
     public abstract class UsbSerialPort
     {
+        // ReSharper disable InconsistentNaming
         public const int DEFAULT_INTERNAL_READ_BUFFER_SIZE = 16 * 1024;
         public const int DEFAULT_TEMP_READ_BUFFER_SIZE = 16 * 1024;
         public const int DEFAULT_READ_BUFFER_SIZE = 16 * 1024;
         public const int DEFAULT_WRITE_BUFFER_SIZE = 16 * 1024;
-		public const int DefaultBaudrate = 9600;
+        // ReSharper restore InconsistentNaming
+
+        public const int DefaultBaudrate = 9600;
 		public const int DefaultDataBits = 8;
 		public const Parity DefaultParity = Parity.None;
 		public const StopBits DefaultStopBits = StopBits.One;
 
-        protected int mPortNumber;
+        // ReSharper disable once InconsistentNaming
+        protected int _portNumber;
 
         // non-null when open()
 		protected UsbDeviceConnection Connection { get; set; }
 
-        protected Object mInternalReadBufferLock = new Object();
-        protected Object mReadBufferLock = new Object();
-        protected Object mWriteBufferLock = new Object();
+        protected object InternalReadBufferLock = new object();
+        protected object ReadBufferLock = new object();
+        protected object WriteBufferLock = new object();
 
-        /** Internal read buffer.  Guarded by {@link #mReadBufferLock}. */
-        protected byte[] mInternalReadBuffer;
-        protected byte[] mTempReadBuffer;
-        protected byte[] mReadBuffer;
-        protected int mReadBufferWriteCursor;
-        protected int mReadBufferReadCursor;
+        /** Internal read buffer.  Guarded by {@link #ReadBufferLock}. */
+        protected byte[] InternalReadBuffer;
+        protected byte[] TempReadBuffer;
+        protected byte[] ReadBuffer;
+        protected int ReadBufferWriteCursor;
+        protected int ReadBufferReadCursor;
 
-        /** Internal write buffer.  Guarded by {@link #mWriteBufferLock}. */
-        protected byte[] mWriteBuffer;
+        /** Internal write buffer.  Guarded by {@link #WriteBufferLock}. */
+        protected byte[] WriteBuffer;
 
+        // ReSharper disable once InconsistentNaming
 		private int mDataBits;
 
-		private volatile bool _ContinueUpdating;
+		private volatile bool _continueUpdating;
 		public bool IsOpened { get; protected set; }
 		public int Baudrate { get; set; }
 		public int DataBits {
@@ -78,7 +84,7 @@ namespace Aid.UsbSerial
         public event EventHandler<DataReceivedEventArgs> DataReceived;
 
 
-        public UsbSerialPort(UsbManager manager, UsbDevice device, int portNumber)
+        protected UsbSerialPort(UsbManager manager, UsbDevice device, int portNumber)
         {
 			Baudrate = DefaultBaudrate;
 			DataBits = DefaultDataBits;
@@ -87,35 +93,30 @@ namespace Aid.UsbSerial
 
             UsbManager = manager;
 			UsbDevice = device;
-            mPortNumber = portNumber;
+            _portNumber = portNumber;
 
-            mInternalReadBuffer = new byte[DEFAULT_INTERNAL_READ_BUFFER_SIZE];
-            mTempReadBuffer = new byte[DEFAULT_TEMP_READ_BUFFER_SIZE];
-            mReadBuffer = new byte[DEFAULT_READ_BUFFER_SIZE];
-            mReadBufferReadCursor = 0;
-            mReadBufferWriteCursor = 0;
-            mWriteBuffer = new byte[DEFAULT_WRITE_BUFFER_SIZE];
+            InternalReadBuffer = new byte[DEFAULT_INTERNAL_READ_BUFFER_SIZE];
+            TempReadBuffer = new byte[DEFAULT_TEMP_READ_BUFFER_SIZE];
+            ReadBuffer = new byte[DEFAULT_READ_BUFFER_SIZE];
+            ReadBufferReadCursor = 0;
+            ReadBufferWriteCursor = 0;
+            WriteBuffer = new byte[DEFAULT_WRITE_BUFFER_SIZE];
         }
 
         public override string ToString()
         {
-            return string.Format("<{0} device_name={1} device_id={2} port_number={3}>", this.GetType().Name, UsbDevice.DeviceName, UsbDevice.DeviceId, mPortNumber);
+            return
+                $"<{GetType().Name} device_name={UsbDevice.DeviceName} device_id={UsbDevice.DeviceId} port_number={_portNumber}>";
         }
 
-        public UsbManager UsbManager
-        {
-            get; private set;
-        }
+        public UsbManager UsbManager { get; }
 
         /**
          * Returns the currently-bound USB device.
          *
          * @return the device
          */
-        public UsbDevice UsbDevice
-        {
-            get; private set;
-        }
+        public UsbDevice UsbDevice { get; }
 
         /**
          * Sets the size of the internal buffer used to exchange data with the USB
@@ -125,13 +126,13 @@ namespace Aid.UsbSerial
          */
         public void SetReadBufferSize(int bufferSize)
         {
-            if (bufferSize == mInternalReadBuffer.Length)
+            if (bufferSize == InternalReadBuffer.Length)
             {
                 return;
             }
-            lock (mInternalReadBufferLock)
+            lock (InternalReadBufferLock)
             {
-                mInternalReadBuffer = new byte[bufferSize];
+                InternalReadBuffer = new byte[bufferSize];
             }
         }
 
@@ -143,34 +144,28 @@ namespace Aid.UsbSerial
          */
         public void SetWriteBufferSize(int bufferSize)
         {
-            lock (mWriteBufferLock)
+            lock (WriteBufferLock)
             {
-                if (bufferSize == mWriteBuffer.Length)
+                if (bufferSize == WriteBuffer.Length)
                 {
                     return;
                 }
-                mWriteBuffer = new byte[bufferSize];
+                WriteBuffer = new byte[bufferSize];
             }
         }
 
         // Members of IUsbSerialPort
 
-        public int PortNumber
-        {
-            get { return mPortNumber; }
-        }
+        public int PortNumber => _portNumber;
 
         /**
          * Returns the device serial number
          *  @return serial number
          */
-        public string Serial
-        {
-            get { return Connection.Serial; }
-        }
+        public string Serial => Connection.Serial;
 
 
-		public abstract void Open ();
+        public abstract void Open ();
 
 		public abstract void Close ();
 
@@ -178,8 +173,8 @@ namespace Aid.UsbSerial
 		protected void CreateConnection()
 		{
 			if (UsbManager != null && UsbDevice != null) {
-				lock (mReadBufferLock) {
-					lock (mWriteBufferLock) {
+				lock (ReadBufferLock) {
+					lock (WriteBufferLock) {
 						Connection = UsbManager.OpenDevice (UsbDevice);
 					}
 				}
@@ -190,8 +185,8 @@ namespace Aid.UsbSerial
 		protected void CloseConnection()
 		{
 			if (Connection != null) {
-				lock (mReadBufferLock) {
-					lock (mWriteBufferLock) {
+				lock (ReadBufferLock) {
+					lock (WriteBufferLock) {
 						Connection.Close();
 						Connection = null;
 					}
@@ -208,51 +203,47 @@ namespace Aid.UsbSerial
 
 		protected void StopUpdating()
 		{
-			_ContinueUpdating = false;
+			_continueUpdating = false;
 		}
 
 
-		private WaitCallback DoTasks()
+		private void DoTasks()
         {
-			_ContinueUpdating = true;
-			while (_ContinueUpdating)
+			_continueUpdating = true;
+			while (_continueUpdating)
             {
-                int rxlen = ReadInternal(mTempReadBuffer, 0);
+                var rxlen = ReadInternal(TempReadBuffer, 0);
                 if (rxlen > 0)
                 {
-                    lock (mReadBufferLock)
+                    lock (ReadBufferLock)
                     {
                         for (int i = 0; i < rxlen; i++)
                         {
-                            mReadBuffer[mReadBufferWriteCursor] = mTempReadBuffer[i];
-                            mReadBufferWriteCursor = (mReadBufferWriteCursor + 1) % mReadBuffer.Length;
-                            if (mReadBufferWriteCursor == mReadBufferReadCursor)
+                            ReadBuffer[ReadBufferWriteCursor] = TempReadBuffer[i];
+                            ReadBufferWriteCursor = (ReadBufferWriteCursor + 1) % ReadBuffer.Length;
+                            if (ReadBufferWriteCursor == ReadBufferReadCursor)
                             {
-                                mReadBufferReadCursor = (mReadBufferReadCursor + 1) % mReadBuffer.Length;
+                                ReadBufferReadCursor = (ReadBufferReadCursor + 1) % ReadBuffer.Length;
                             }
                         }
                     }
-                    if (DataReceived != null)
-                    {
-                        DataReceived(this, new DataReceivedEventArgs(this));
-                    }
+                    DataReceived?.Invoke(this, new DataReceivedEventArgs(this));
                 }
             }
-            return null;
         }
 
         public int Read(byte[] dest, int startIndex)
         {
-            int len = 0;
-            lock (mReadBufferLock)
+            var len = 0;
+            lock (ReadBufferLock)
             {
-                int pos = startIndex;
-                while ((mReadBufferReadCursor != mReadBufferWriteCursor) && (pos < dest.Length))
+                var pos = startIndex;
+                while ((ReadBufferReadCursor != ReadBufferWriteCursor) && (pos < dest.Length))
                 {
-                    dest[pos] = mReadBuffer[mReadBufferReadCursor];
+                    dest[pos] = ReadBuffer[ReadBufferReadCursor];
                     len++;
                     pos++;
-                    mReadBufferReadCursor = (mReadBufferReadCursor + 1) % mReadBuffer.Length;
+                    ReadBufferReadCursor = (ReadBufferReadCursor + 1) % ReadBuffer.Length;
                 }
             }
             return len;
@@ -269,6 +260,7 @@ namespace Aid.UsbSerial
 
 		protected abstract void SetParameters(int baudRate, int dataBits, StopBits stopBits, Parity parity);
 
+        // ReSharper disable once InconsistentNaming
         public abstract bool CD { get; }
 
         public abstract bool Cts { get; }
@@ -277,6 +269,7 @@ namespace Aid.UsbSerial
 
         public abstract bool Dtr { get; set; }
 
+        // ReSharper disable once InconsistentNaming
         public abstract bool RI { get; }
 
         public abstract bool Rts { get; set; }

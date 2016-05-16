@@ -25,14 +25,15 @@
 
 using System;
 using System.Collections.Generic;
-using System.Reflection;
-using Android.Hardware.Usb;
 
 namespace Aid.UsbSerial
 {
     public class UsbSerialDeviceList
     {
-		public const int VendorFtdi = 0x0403;
+        // ReSharper disable UnusedMember.Local
+        // ReSharper disable InconsistentNaming
+
+        public const int VendorFtdi = 0x0403;
 		public const int FtdiFT232_245 = 0x6001;
 		public const int FtdiFT2232 = 0x6010;
 		public const int FtdiFT4232 = 0x6011;
@@ -71,12 +72,10 @@ namespace Aid.UsbSerial
         public const int VendorProlific = 0x067b;
         public const int ProlificPL2303 = 0x2303;
 
+        // ReSharper restore InconsistentNaming
+        // ReSharper restore UnusedMember.Local
 
-        //
-
-
-        public static UsbSerialDeviceList Default { get; private set; }
-
+        public static UsbSerialDeviceList Default { get; }
 
         static UsbSerialDeviceList()
         {
@@ -111,18 +110,12 @@ namespace Aid.UsbSerial
             Default.AddAvailableDeviceInfo(VendorProlific, ProlificPL2303, typeof(ProlificSerialPort), 1);
         }
 
-
-		//
-
-        
-		public Dictionary<UsbSerialDeviceID, UsbSerialDeviceInfo> AvailableDeviceInfo { get; private set; }
-
+		public Dictionary<UsbSerialDeviceID, UsbSerialDeviceInfo> AvailableDeviceInfo { get; }
 
 		public UsbSerialDeviceList()
 		{
 			AvailableDeviceInfo = new Dictionary<UsbSerialDeviceID, UsbSerialDeviceInfo> ();
 		}
-
 
         public void AddAvailableDeviceInfo(int vendorId, int productId, Type deviceClass, int numOfPorts)
         {
@@ -130,7 +123,7 @@ namespace Aid.UsbSerial
             {
                 throw new ArgumentException();
             }
-            UsbSerialDeviceID id = new UsbSerialDeviceID(vendorId, productId);
+            var id = new UsbSerialDeviceID(vendorId, productId);
             if (!AvailableDeviceInfo.ContainsKey(id))
             {
                 AvailableDeviceInfo.Add(id, new UsbSerialDeviceInfo(deviceClass, numOfPorts));

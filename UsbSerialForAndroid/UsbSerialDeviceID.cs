@@ -25,10 +25,13 @@
 
 namespace Aid.UsbSerial
 {
+    // ReSharper disable once InconsistentNaming
 	public struct UsbSerialDeviceID
 	{
-		public int VendorID;
-		public int ProductID;
+	    // ReSharper disable once InconsistentNaming
+		public readonly int VendorID;
+	    // ReSharper disable once InconsistentNaming
+		public readonly int ProductID;
 
 		public UsbSerialDeviceID(int vendorId, int productId)
 		{
@@ -43,15 +46,12 @@ namespace Aid.UsbSerial
                 return false;
             }
 
-            UsbSerialDeviceID id = (UsbSerialDeviceID)obj;
+            var id = (UsbSerialDeviceID)obj;
             if ((VendorID == id.VendorID) && (ProductID == id.ProductID))
             {
                 return true;
             }
-            else
-            {
-                return false;
-            }
+            return false;
         }
 
         public override int GetHashCode()

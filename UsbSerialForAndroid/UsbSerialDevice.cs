@@ -24,22 +24,23 @@
  */
 
 using System;
-using System.Reflection;
+
 using Android.Hardware.Usb;
 
 namespace Aid.UsbSerial
 {
 	public sealed class UsbSerialDevice
     {
-        public UsbManager UsbManager { get; private set; }
+        public UsbManager UsbManager { get; }
 
-        public UsbDevice UsbDevice { get; private set; }
+        public UsbDevice UsbDevice { get; }
 
-        public UsbSerialPort[] Ports { get; private set; }
+        public UsbSerialPort[] Ports { get; }
 
+	    // ReSharper disable once InconsistentNaming
 		public UsbSerialDeviceID ID { get; private set; }
 
-		public UsbSerialDeviceInfo Info { get; private set; }
+		public UsbSerialDeviceInfo Info { get; }
         
         public UsbSerialDevice(UsbManager usbManager, UsbDevice usbDevice, UsbSerialDeviceID id, UsbSerialDeviceInfo info)
 		{
@@ -48,20 +49,20 @@ namespace Aid.UsbSerial
             ID = id;
 			Info = info;
 
-			ConstructorInfo cInfo = Info.DriverType.GetConstructor(new Type[] { typeof(UsbManager), typeof(UsbDevice), typeof(int) });
+			var cInfo = Info.DriverType.GetConstructor(new[] { typeof(UsbManager), typeof(UsbDevice), typeof(int) });
 			if (cInfo == null) {
 				throw new InvalidProgramException ();
 			}
 
 			Ports = new UsbSerialPort[info.NumberOfPorts];
-			for (int i = 0; i < Info.NumberOfPorts; i++) {
+			for (var i = 0; i < Info.NumberOfPorts; i++) {
                 Ports[i] = (UsbSerialPort)cInfo.Invoke(new object[] { UsbManager, UsbDevice, i });
 			}
 		}
 
         public void CloseAllPorts()
         {
-            foreach(UsbSerialPort port in Ports)
+            foreach(var port in Ports)
             {
                 port.Close();
             }

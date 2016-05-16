@@ -24,87 +24,88 @@
  */
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 
-using Android.Hardware.Usb;
-using Android.OS;
 using Android.Util;
-
-using Java.Nio;
+using Android.Hardware.Usb;
 
 namespace Aid.UsbSerial
 {
-	class Cp21xxSerialPort : UsbSerialPort
+    // ReSharper disable once InconsistentNaming
+	internal class Cp21xxSerialPort : UsbSerialPort
     {
+        // ReSharper disable UnusedMember.Local
+        // ReSharper disable InconsistentNaming
+        private const string TAG = "Cp21xxSerialPort";
+	    private const int DEFAULT_BAUD_RATE = 9600;
 
-        private static string TAG = "Cp21xxSerialPort";
-        private static int DEFAULT_BAUD_RATE = 9600;
+	    private const int USB_WRITE_TIMEOUT_MILLIS = 5000;
 
-        private static int USB_WRITE_TIMEOUT_MILLIS = 5000;
-
-        /*
+	    /*
          * Configuration Request Types
          */
-        private static int REQTYPE_HOST_TO_DEVICE = 0x41;
+	    private const int REQTYPE_HOST_TO_DEVICE = 0x41;
 
-        /*
+	    /*
          * Configuration Request Codes
          */
-        private static int SilabsER_IFC_ENABLE_REQUEST_CODE = 0x00;
-        private static int SilabsER_SET_BAUDDIV_REQUEST_CODE = 0x01;
-        private static int SilabsER_SET_LINE_CTL_REQUEST_CODE = 0x03;
-        private static int SilabsER_SET_MHS_REQUEST_CODE = 0x07;
-        private static int SilabsER_SET_BAUDRATE = 0x1E;
-        private static int SilabsER_FLUSH_REQUEST_CODE = 0x12;
+	    private const int SilabsER_IFC_ENABLE_REQUEST_CODE = 0x00;
+	    private const int SilabsER_SET_BAUDDIV_REQUEST_CODE = 0x01;
+	    private const int SilabsER_SET_LINE_CTL_REQUEST_CODE = 0x03;
+	    private const int SilabsER_SET_MHS_REQUEST_CODE = 0x07;
+	    private const int SilabsER_SET_BAUDRATE = 0x1E;
+	    private const int SilabsER_FLUSH_REQUEST_CODE = 0x12;
 
-        private static int FLUSH_READ_CODE = 0x0a;
-        private static int FLUSH_WRITE_CODE = 0x05;
+	    private const int FLUSH_READ_CODE = 0x0a;
+	    private const int FLUSH_WRITE_CODE = 0x05;
 
-        /*
+	    /*
          * SilabsER_IFC_ENABLE_REQUEST_CODE
          */
-        private static int UART_ENABLE = 0x0001;
-        private static int UART_DISABLE = 0x0000;
+	    private const int UART_ENABLE = 0x0001;
+	    private const int UART_DISABLE = 0x0000;
 
         /*
          * SilabsER_SET_BAUDDIV_REQUEST_CODE
          */
-        private static int BAUD_RATE_GEN_FREQ = 0x384000;
+        private const int BAUD_RATE_GEN_FREQ = 0x384000;
 
         /*
          * SilabsER_SET_MHS_REQUEST_CODE
          */
-        private static int MCR_DTR = 0x0001;
-        private static int MCR_RTS = 0x0002;
-        private static int MCR_ALL = 0x0003;
+	    
+        private const int MCR_DTR = 0x0001;
+	    private const int MCR_RTS = 0x0002;
+        private const int MCR_ALL = 0x0003;
 
-        private static int CONTROL_WRITE_DTR = 0x0100;
-        private static int CONTROL_WRITE_RTS = 0x0200;
+        private const int CONTROL_WRITE_DTR = 0x0100;
+        private const int CONTROL_WRITE_RTS = 0x0200;
+        // ReSharper restore InconsistentNaming
+        // ReSharper restore UnusedMember.Local
 
-        private UsbEndpoint mReadEndpoint;
-        private UsbEndpoint mWriteEndpoint;
+        private UsbEndpoint _readEndpoint;
+        private UsbEndpoint _writeEndpoint;
 
         public Cp21xxSerialPort(UsbManager manager, UsbDevice device, int portNumber)
             : base(manager, device, portNumber)
         {
         }
 
-        private int SetConfigSingle(int request, int value)
+        private void SetConfigSingle(int request, int value)
         {
-            return Connection.ControlTransfer((UsbAddressing)REQTYPE_HOST_TO_DEVICE, request, value, 0, null, 0, USB_WRITE_TIMEOUT_MILLIS);
+            Connection.ControlTransfer((UsbAddressing)REQTYPE_HOST_TO_DEVICE, request, value, 0, null, 0, USB_WRITE_TIMEOUT_MILLIS);
         }
 
-        public override void Open()
+	    public override void Open()
         {
-			bool openedSuccessfully = false;
+			var openedSuccessfully = false;
             try
             {
 				CreateConnection();
 
-				for (int i = 0; i < UsbDevice.InterfaceCount; i++)
+				for (var i = 0; i < UsbDevice.InterfaceCount; i++)
                 {
-                    UsbInterface usbIface = UsbDevice.GetInterface(i);
+                    var usbIface = UsbDevice.GetInterface(i);
                     if (Connection.ClaimInterface(usbIface, true))
                     {
                         Log.Debug(TAG, "ClaimInterface " + i + " SUCCESS");
@@ -115,19 +116,19 @@ namespace Aid.UsbSerial
                     }
                 }
 
-                UsbInterface dataIface = UsbDevice.GetInterface(UsbDevice.InterfaceCount - 1);
-                for (int i = 0; i < dataIface.EndpointCount; i++)
+                var dataIface = UsbDevice.GetInterface(UsbDevice.InterfaceCount - 1);
+                for (var i = 0; i < dataIface.EndpointCount; i++)
                 {
-                    UsbEndpoint ep = dataIface.GetEndpoint(i);
+                    var ep = dataIface.GetEndpoint(i);
                     if (ep.Type == UsbAddressing.XferBulk)
                     { // UsbConstants.USB_ENDPOINT_XFER_BULK
                         if (ep.Direction == UsbAddressing.In)
                         { // UsbConstants.USB_DIR_IN
-                            mReadEndpoint = ep;
+                            _readEndpoint = ep;
                         }
                         else
                         {
-                            mWriteEndpoint = ep;
+                            _writeEndpoint = ep;
                         }
                     }
                 }
@@ -161,10 +162,10 @@ namespace Aid.UsbSerial
         protected override int ReadInternal(byte[] dest, int timeoutMillis)
         {
             int numBytesRead;
-            lock (mInternalReadBufferLock)
+            lock (InternalReadBufferLock)
             {
-                int readAmt = Math.Min(dest.Length, mInternalReadBuffer.Length);
-                numBytesRead = Connection.BulkTransfer(mReadEndpoint, mInternalReadBuffer, readAmt, timeoutMillis);
+                var readAmt = Math.Min(dest.Length, InternalReadBuffer.Length);
+                numBytesRead = Connection.BulkTransfer(_readEndpoint, InternalReadBuffer, readAmt, timeoutMillis);
                 if (numBytesRead < 0)
                 {
                     // This sucks: we get -1 on timeout, not 0 as preferred.
@@ -173,25 +174,25 @@ namespace Aid.UsbSerial
                     // in response :\ -- http://b.android.com/28023
                     return 0;
                 }
-                Array.Copy(mInternalReadBuffer, 0, dest, 0, numBytesRead);
+                Array.Copy(InternalReadBuffer, 0, dest, 0, numBytesRead);
             }
             return numBytesRead;
         }
 
         public override int Write(byte[] src, int timeoutMillis)
         {
-            int offset = 0;
+            var offset = 0;
 
             while (offset < src.Length)
             {
                 int writeLength;
                 int amtWritten;
 
-                lock (mWriteBufferLock)
+                lock (WriteBufferLock)
                 {
                     byte[] writeBuffer;
 
-                    writeLength = Math.Min(src.Length - offset, mWriteBuffer.Length);
+                    writeLength = Math.Min(src.Length - offset, WriteBuffer.Length);
                     if (offset == 0)
                     {
                         writeBuffer = src;
@@ -199,11 +200,11 @@ namespace Aid.UsbSerial
                     else
                     {
                         // bulkTransfer does not support offsets, make a copy.
-                        Array.Copy(src, offset, mWriteBuffer, 0, writeLength);
-                        writeBuffer = mWriteBuffer;
+                        Array.Copy(src, offset, WriteBuffer, 0, writeLength);
+                        writeBuffer = WriteBuffer;
                     }
 
-                    amtWritten = Connection.BulkTransfer(mWriteEndpoint, writeBuffer, writeLength, timeoutMillis);
+                    amtWritten = Connection.BulkTransfer(_writeEndpoint, writeBuffer, writeLength, timeoutMillis);
                 }
                 if (amtWritten <= 0)
                 {
@@ -217,15 +218,15 @@ namespace Aid.UsbSerial
             return offset;
         }
 
-        private void setBaudRate(int baudRate)
+        private void SetBaudRate(int baudRate)
         {
-            byte[] data = new byte[] {
+            byte[] data = {
                 (byte) ( baudRate & 0xff),
                 (byte) ((baudRate >> 8 ) & 0xff),
                 (byte) ((baudRate >> 16) & 0xff),
                 (byte) ((baudRate >> 24) & 0xff)
         };
-            int ret = Connection.ControlTransfer((UsbAddressing)REQTYPE_HOST_TO_DEVICE, SilabsER_SET_BAUDRATE, 0, 0, data, 4, USB_WRITE_TIMEOUT_MILLIS);
+            var ret = Connection.ControlTransfer((UsbAddressing)REQTYPE_HOST_TO_DEVICE, SilabsER_SET_BAUDRATE, 0, 0, data, 4, USB_WRITE_TIMEOUT_MILLIS);
             if (ret < 0)
             {
                 throw new IOException("Error setting baud rate.");
@@ -234,9 +235,9 @@ namespace Aid.UsbSerial
 
         protected override void SetParameters(int baudRate, int dataBits, StopBits stopBits, Parity parity)
         {
-            setBaudRate(baudRate);
+            SetBaudRate(baudRate);
 
-            int configDataBits = 0;
+            var configDataBits = 0;
             switch (dataBits)
             {
                 case 5:
@@ -278,29 +279,11 @@ namespace Aid.UsbSerial
             SetConfigSingle(SilabsER_SET_LINE_CTL_REQUEST_CODE, configDataBits);
         }
 
-        public override bool CD
-        {
-            get
-            {
-                return false;  // TODO
-            }
-        }
+        public override bool CD => false; // TODO
 
-        public override bool Cts
-        {
-            get
-            {
-                return false;  // TODO
-            }
-        }
+	    public override bool Cts => false; // TODO
 
-        public override bool Dsr
-        {
-            get
-            {
-                return false;  // TODO
-            }
-        }
+        public override bool Dsr => false; // TODO
 
         public override bool Dtr
         {
@@ -313,13 +296,7 @@ namespace Aid.UsbSerial
             }
         }
 
-        public override bool RI
-        {
-            get
-            {
-                return false;  // TODO
-            }
-        }
+        public override bool RI => false; // TODO
 
         public override bool Rts
         {
@@ -334,7 +311,7 @@ namespace Aid.UsbSerial
 
         public override bool PurgeHwBuffers(bool purgeReadBuffers, bool purgeWriteBuffers)
         {
-            int value = (purgeReadBuffers ? FLUSH_READ_CODE : 0)
+            var value = (purgeReadBuffers ? FLUSH_READ_CODE : 0)
                     | (purgeWriteBuffers ? FLUSH_WRITE_CODE : 0);
 
             if (value != 0)
