@@ -91,8 +91,6 @@ namespace Aid.UsbSerial
             Update();
         }
 
-        //
-
         internal void AddDevice(UsbManager usbManager, UsbDevice usbDevice)
         {
             var serialDevice = GetDevice(usbManager, usbDevice, AllowAnonymousCdcAcmDevices);
@@ -105,26 +103,36 @@ namespace Aid.UsbSerial
             }
         }
 
-
         internal void RemoveDevice(UsbDevice usbDevice)
         {
             UsbSerialDevice removedDevice = null;
 			var attachedDevices = AttachedDevices.ToArray();
-			foreach (var device in attachedDevices) {
-				if (
-					device.UsbDevice.VendorId == usbDevice.VendorId
-					&& device.UsbDevice.ProductId == usbDevice.ProductId
-					&& device.UsbDevice.SerialNumber == usbDevice.SerialNumber) {
-					removedDevice = device;
-					break;
-				}
-			}
-			if (removedDevice != null) {
+            foreach (var device in attachedDevices)
+            {
+                bool serialEquals;
+                try
+                {
+                    // TODO Fix this workaround of https://github.com/ysykhmd/usb-serial-for-xamarin-android/issues/1
+                    serialEquals = device.UsbDevice.SerialNumber == usbDevice.SerialNumber;
+                }
+                catch (Exception)
+                {
+                    serialEquals = true;
+                }
+
+                if (device.UsbDevice.VendorId == usbDevice.VendorId
+                    && device.UsbDevice.ProductId == usbDevice.ProductId
+                    && serialEquals)
+                {
+                    removedDevice = device;
+                    break;
+                }
+            }
+            if (removedDevice != null) {
 				RemoveDevice (removedDevice);
 			}
         }
-
-
+        
         internal void RemoveDevice(UsbSerialDevice serialDevice)
         {
             if (serialDevice != null)
@@ -136,7 +144,6 @@ namespace Aid.UsbSerial
 				}
             }
         }
-
 
         public void Stop()
 		{
@@ -150,8 +157,6 @@ namespace Aid.UsbSerial
 			}
 			Context.UnregisterReceiver (Receiver);
 		}
-
-
 
         public void Update()
         {
@@ -198,8 +203,7 @@ namespace Aid.UsbSerial
             }
         }
 
-
-		private UsbSerialDevice GetDevice(UsbManager usbManager, UsbDevice usbDevice, bool allowAnonymousCdcAcmDevices)
+        private UsbSerialDevice GetDevice(UsbManager usbManager, UsbDevice usbDevice, bool allowAnonymousCdcAcmDevices)
 		{
             var id = new UsbSerialDeviceID(usbDevice.VendorId, usbDevice.ProductId);
 			var info = FindDeviceInfo (id, usbDevice.DeviceClass, allowAnonymousCdcAcmDevices);
@@ -224,8 +228,7 @@ namespace Aid.UsbSerial
             return null;
         }
 
-
-	    private class UsbSerialDeviceBroadcastReceiver : BroadcastReceiver
+        private class UsbSerialDeviceBroadcastReceiver : BroadcastReceiver
         {
             private UsbManager UsbManager { get; }
 
