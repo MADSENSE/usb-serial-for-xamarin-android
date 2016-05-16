@@ -238,44 +238,32 @@ namespace Aid.UsbSerial
 
             public override void OnReceive(Context context, Intent intent)
             {
-                UsbDevice device;
+                var device = intent.GetParcelableExtra(UsbManager.ExtraDevice) as UsbDevice;
+                if (device == null)
+                    return;
+
                 var action = intent.Action;
                 if (action == UsbManager.ActionUsbDeviceAttached)
                 {
-					var exdevobj = intent.GetParcelableExtra(UsbManager.ExtraDevice);
-                    device = exdevobj as UsbDevice;
-                    if (device != null)
+                    if (!UsbManager.HasPermission(device))
                     {
-                        if (!UsbManager.HasPermission(device))
-                        {
-                            var permissionIntent = PendingIntent.GetBroadcast(context, 0, new Intent(ActionUsbPermission), 0);
-                            UsbManager.RequestPermission(device, permissionIntent);
-                        }
-                        else
-                        {
-                            DeviceManager.AddDevice(UsbManager, device);
-                        }
+                        var permissionIntent = PendingIntent.GetBroadcast(context, 0, new Intent(ActionUsbPermission), 0);
+                        UsbManager.RequestPermission(device, permissionIntent);
+                    }
+                    else
+                    {
+                        DeviceManager.AddDevice(UsbManager, device);
                     }
                 }
                 else if (action == UsbManager.ActionUsbDeviceDetached)
                 {
-					var exdevobj = intent.GetParcelableExtra(UsbManager.ExtraDevice);
-                    device = exdevobj as UsbDevice;
-					if (device != null)
-					{
-						DeviceManager.RemoveDevice(device);
-					}
+                    DeviceManager.RemoveDevice(device);
                 }
                 else if (action == ActionUsbPermission)
                 {
-                    var exdevobj = intent.GetParcelableExtra(UsbManager.ExtraDevice);
-                    device = exdevobj as UsbDevice;
-                    if (device != null)
+                    if (UsbManager.HasPermission(device))
                     {
-                        if (UsbManager.HasPermission(device))
-                        {
-                            DeviceManager.AddDevice(UsbManager, device);
-                        }
+                        DeviceManager.AddDevice(UsbManager, device);
                     }
                 }
             }
