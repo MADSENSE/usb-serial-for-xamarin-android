@@ -202,22 +202,26 @@ namespace Aid.UsbSerial
 		private UsbSerialDevice GetDevice(UsbManager usbManager, UsbDevice usbDevice, bool allowAnonymousCdcAcmDevices)
 		{
             var id = new UsbSerialDeviceID(usbDevice.VendorId, usbDevice.ProductId);
-			var info = FindDeviceInfo (id);
+			var info = FindDeviceInfo (id, usbDevice.DeviceClass, allowAnonymousCdcAcmDevices);
 			if (info != null) {
 				var device = new UsbSerialDevice(usbManager, usbDevice, id, info);
 				return device;
             }
-		    if (allowAnonymousCdcAcmDevices && usbDevice.DeviceClass == UsbClass.Comm)
-		    {
-		        UsbSerialDevice device = new UsbSerialDevice(usbManager, usbDevice, id, UsbSerialDeviceInfo.CdcAcm);
-		        return device;
-		    }
 		    return null;
 		}
 
-        private UsbSerialDeviceInfo FindDeviceInfo(UsbSerialDeviceID id)
+        private UsbSerialDeviceInfo FindDeviceInfo(UsbSerialDeviceID id, UsbClass usbClass, bool allowAnonymousCdcAcmDevices)
         {
-            return AvailableDeviceInfo.ContainsKey(id) ? AvailableDeviceInfo[id] : null;
+            if (AvailableDeviceInfo.ContainsKey(id))
+            {
+                return AvailableDeviceInfo[id];
+            }
+            if (allowAnonymousCdcAcmDevices && usbClass == UsbClass.Comm)
+            {
+                return UsbSerialDeviceInfo.CdcAcm;
+            }
+
+            return null;
         }
 
 
@@ -240,6 +244,11 @@ namespace Aid.UsbSerial
             {
                 var device = intent.GetParcelableExtra(UsbManager.ExtraDevice) as UsbDevice;
                 if (device == null)
+                    return;
+
+                var id = new UsbSerialDeviceID(device.VendorId, device.ProductId);
+                var info = DeviceManager.FindDeviceInfo(id, device.DeviceClass, DeviceManager.AllowAnonymousCdcAcmDevices);
+                if (info == null)
                     return;
 
                 var action = intent.Action;
